@@ -1,0 +1,40 @@
+---
+- hosts: f5
+  gather_facts: true
+  connection: local
+  vars:
+    filename: "report_f5_{{ date }}.csv"
+    provider:
+      server: 10.244.10.23
+      user: <username>
+      password: <password> 
+      validate_certs: no
+      server_port: 443
+  tasks:
+    - name: Creating CSV file
+      set_fact: date= "{{ lookup('pipe', 'date +%Y-%m-%d-%H-%M-%S')}}"
+      run_once: true
+    - name: CSV file creation
+      lineinfile:
+        dest: "report_f5_{{ date }}.csv"
+        line:
+          hostname, system, os type, model, serialnum, version, IPv4 addresses, Ipv6 addresses
+        create: yes
+        state: present
+    - name: BIG IP facts
+      bigip_device_facts:
+        gather_subset:
+          - all
+        provider: "{{ provider }}"
+      register: facts
+    - debug: var=facts
+    - name: get facts
+      set_fact:
+        csv_tmp: >
+          {{ ansible_hostname }}, {{ ansible_net_system_info }}, {{ ansible_iostype }}, {{ ansible_model }}, {{ ansible_serialnum }}, {{ ansible_version }}, {{ ansible_all_ipv4_addresses }}, {{ ansible_all_ipv6_addresses }}
+    - name: Write to CSV file
+      lineinfile:
+        insertafter: EOF
+        dest: "report_f5_{{ date }}.csv"
+                line: "{{ ansible_net_hostname \t ansible_net_system \t ansible_net_iostype \t ansible_net_model \t ansible_net_serialnum \t ansible_net_version \t ansible_net_all_ipv4_addresses \t ansible_net_all_ipv6_addresses }}"
+        line: "{{ csv_tmp }}"
